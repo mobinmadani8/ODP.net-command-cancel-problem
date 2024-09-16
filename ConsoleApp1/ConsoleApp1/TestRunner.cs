@@ -31,12 +31,9 @@ namespace ConsoleApp1
             
             Console.WriteLine("table created");
             
-            
             while (true)
             {
                 Console.WriteLine("connection state before running query " + connection.State);
-                using var cancellationTokenSource = new CancellationTokenSource();
-                cancellationTokenSource.CancelAfter(3000);
 
                 await using (var command = new OracleCommand(insertQuery, connection))
                 {
@@ -46,8 +43,16 @@ namespace ConsoleApp1
 
                     try
                     {
-                        var ct = cancellationTokenSource.Token;
-                        await command.ExecuteNonQueryAsync(ct);
+                        var cancelRunner = Task.Run(async () =>
+                        {
+                            await Task.Delay(600);
+                            command.Cancel();
+                        });
+                        
+                        var queryExecutor = command.ExecuteNonQueryAsync(default);
+
+                        await Task.WhenAll(cancelRunner, queryExecutor);
+                        
                         Console.WriteLine("Executing finish");
                     }
                     catch (DbException e)
